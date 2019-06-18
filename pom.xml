@@ -4,7 +4,7 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>23.2.0</version>
+		<version>26.0.0</version>
 	</parent>
 
 	<groupId>org.janelia.saalfeldlab</groupId>
@@ -78,7 +78,7 @@
 		<license.copyrightOwners>Stephan Saalfeld</license.copyrightOwners>
 
 		<!-- NB: Deploy releases to the ImageJ Maven repository. -->
-		<releaseProfiles>deploy-to-imagej</releaseProfiles>
+		<releaseProfiles>deploy-to-scijava</releaseProfiles>
 	</properties>
 
 	<repositories>
