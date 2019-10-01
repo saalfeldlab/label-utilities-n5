@@ -9,7 +9,7 @@
 
 	<groupId>org.janelia.saalfeldlab</groupId>
 	<artifactId>label-utilities-n5</artifactId>
-	<version>0.1.2-SNAPSHOT</version>
+	<version>0.2.1-SNAPSHOT</version>
 
 	<name>Label Utilities N5</name>
 	<description>Tools for label data that have n5 dependency.</description>
