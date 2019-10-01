@@ -39,7 +39,7 @@ class LabelBlockLookupFromN5(
 
 		private const val SINGLE_ENTRY_BYTE_SIZE = 3 * 2 * java.lang.Long.BYTES
 
-		private fun fromBytes(array: ByteArray): Map<Long, Array<Interval>> {
+		private fun fromBytes(array: ByteArray): MutableMap<Long, Array<Interval>> {
 			val map = mutableMapOf<Long, Array<Interval>>()
 			val bb = ByteBuffer.wrap(array)
 			while (bb.hasRemaining()) {
@@ -58,7 +58,7 @@ class LabelBlockLookupFromN5(
 						.toTypedArray()
 				map[id] = intervals
 			}
-			return map.toMap()
+			return map
 		}
 
 		private fun toBytes(map: Map<Long, Array<Interval>>): ByteArray {
@@ -89,35 +89,19 @@ class LabelBlockLookupFromN5(
 	override fun write(key: LabelBlockLookupKey, vararg intervals: Interval) {
 		val blockKey = getBlockKey(key)
 		cache.invalidate(blockKey)
-		val map = readBlock(blockKey).toMutableMap()
+		val map = readBlock(blockKey)
 		map[key.id] = arrayOf(*intervals)
 		writeBlock(getBlockKey(key), map)
 	}
 
-	override fun invalidate(key: LabelBlockLookupKey) {
-		val blockKey = getBlockKey(key)
-		cache.invalidate(blockKey)
-	}
+	override fun invalidate(key: LabelBlockLookupKey) = cache.invalidate(getBlockKey(key))
 
-	override fun invalidateAll(parallelismThreshold: Long) {
-		cache.invalidateAll(parallelismThreshold)
-	}
+	override fun invalidateAll(parallelismThreshold: Long) = cache.invalidateAll(parallelismThreshold)
 
 	override fun invalidateIf(parallelismThreshold: Long, condition: Predicate<LabelBlockLookupKey>) {
-		val blockPredicate = Predicate<N5LabelBlockLookupKey> {
-			var ret = false
-			val map = cache.getIfPresent(it)
-			if (map != null) {
-				for (id in map.keys) {
-					if (condition.test(LabelBlockLookupKey(it.level, id))) {
-						ret = true
-						break
-					}
-				}
-			}
-			ret
+		cache.invalidateIf(parallelismThreshold) { key ->
+			cache.getIfPresent(key)?.keys?.any { id -> condition.test(LabelBlockLookupKey(key.level, id)) } ?: false
 		}
-		cache.invalidateIf(parallelismThreshold, blockPredicate)
 	}
 
 	@Throws(IOException::class)
@@ -130,21 +114,19 @@ class LabelBlockLookupFromN5(
 	}
 
 	@Throws(IOException::class)
-	private fun readBlock(blockKey: N5LabelBlockLookupKey): Map<Long, Array<Interval>> {
+	private fun readBlock(blockKey: N5LabelBlockLookupKey): MutableMap<Long, Array<Interval>> {
 		LOG.debug("Reading block id {} at scale level={}", blockKey.blockId, blockKey.level)
-		println("Reading block id " + blockKey.blockId + " at scale level " + blockKey.level)
-
-		val dataset = "${String.format(scaleDatasetPattern, blockKey.level)}"
+		val dataset = String.format(scaleDatasetPattern, blockKey.level)
 		val attributes = this.attributes.getOrPut(blockKey.level, { n5().getDatasetAttributes(dataset) })
 
 		val block = n5().readBlock(dataset, attributes, longArrayOf(blockKey.blockId)) as? ByteArrayDataBlock
-		return if (block != null) fromBytes(block.data) else mapOf()
+		return if (block != null) fromBytes(block.data) else mutableMapOf()
 	}
 
 	@Throws(IOException::class)
 	private fun writeBlock(blockKey: N5LabelBlockLookupKey, map: Map<Long, Array<Interval>>) {
 		LOG.debug("Writing block id {} at scale level={}", blockKey.blockId, blockKey.level)
-		val dataset = "${String.format(scaleDatasetPattern, blockKey.level)}"
+		val dataset = String.format(scaleDatasetPattern, blockKey.level)
 		val attributes = this.attributes.getOrPut(blockKey.level, { n5().getDatasetAttributes(dataset) })
 
 		val size = intArrayOf(attributes.blockSize[0])
@@ -159,9 +141,7 @@ class LabelBlockLookupFromN5(
 		return n5!!
 	}
 
-	private fun getBlockKey(key: LabelBlockLookupKey): N5LabelBlockLookupKey {
-		return getBlockKey(key.level, key.id)
-	}
+	private fun getBlockKey(key: LabelBlockLookupKey) = getBlockKey(key.level, key.id)
 
 	private fun getBlockKey(level: Int, id: Long): N5LabelBlockLookupKey {
 		val dataset = "${String.format(scaleDatasetPattern, level)}"
