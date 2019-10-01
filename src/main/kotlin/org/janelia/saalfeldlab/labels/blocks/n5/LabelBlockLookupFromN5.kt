@@ -81,11 +81,13 @@ class LabelBlockLookupFromN5(
 		}
 	}
 
+	@Synchronized
 	override fun read(key: LabelBlockLookupKey): Array<Interval> {
 		val map = cache.get(getBlockKey(key), this::readBlock)
 		return map[key.id] ?: arrayOf()
 	}
 
+	@Synchronized
 	override fun write(key: LabelBlockLookupKey, vararg intervals: Interval) {
 		val blockKey = getBlockKey(key)
 		cache.invalidate(blockKey)
@@ -94,16 +96,20 @@ class LabelBlockLookupFromN5(
 		writeBlock(getBlockKey(key), map)
 	}
 
+	@Synchronized
 	override fun invalidate(key: LabelBlockLookupKey) = cache.invalidate(getBlockKey(key))
 
+	@Synchronized
 	override fun invalidateAll(parallelismThreshold: Long) = cache.invalidateAll(parallelismThreshold)
 
+	@Synchronized
 	override fun invalidateIf(parallelismThreshold: Long, condition: Predicate<LabelBlockLookupKey>) {
 		cache.invalidateIf(parallelismThreshold) { key ->
 			cache.getIfPresent(key)?.keys?.any { id -> condition.test(LabelBlockLookupKey(key.level, id)) } ?: false
 		}
 	}
 
+	@Synchronized
 	@Throws(IOException::class)
 	fun set(level: Int, map: Map<Long, Array<Interval>>) {
 		val mapByBlockKey = mutableMapOf<N5LabelBlockLookupKey, MutableMap<Long, Array<Interval>>>()
