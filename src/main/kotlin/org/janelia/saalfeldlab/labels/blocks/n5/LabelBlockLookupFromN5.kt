@@ -124,6 +124,7 @@ class LabelBlockLookupFromN5(
 		val mapByBlockKey = mutableMapOf<N5LabelBlockLookupKey, MutableMap<Long, Array<Interval>>>()
 		for (entry in map)
 			mapByBlockKey.computeIfAbsent(getBlockKey(level, entry.key)) { mutableMapOf() } [entry.key] = entry.value
+		cache.invalidateIf { it.level == level }
 		mapByBlockKey.forEach(this::writeBlock)
 	}
 
