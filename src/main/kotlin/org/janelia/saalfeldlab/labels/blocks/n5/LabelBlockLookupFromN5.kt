@@ -31,6 +31,7 @@ class LabelBlockLookupFromN5(
 
 	private data class N5LabelBlockLookupKey(val level: Int, val blockId: Long)
 
+	// Cache all lookups in a block when it's requested for the first time
 	private val cache = SoftRefLoaderCache<N5LabelBlockLookupKey, Map<Long, Array<Interval>>>()
 
 	companion object {
