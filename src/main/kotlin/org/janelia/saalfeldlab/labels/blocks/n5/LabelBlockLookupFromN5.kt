@@ -150,7 +150,7 @@ class LabelBlockLookupFromN5(
 	private fun getBlockKey(key: LabelBlockLookupKey) = getBlockKey(key.level, key.id)
 
 	private fun getBlockKey(level: Int, id: Long): N5LabelBlockLookupKey {
-		val dataset = "${String.format(scaleDatasetPattern, level)}"
+		val dataset = String.format(scaleDatasetPattern, level)
 		val attributes = this.attributes.getOrPut(level, { n5().getDatasetAttributes(dataset) })
 		val blockSize = attributes.blockSize[0]
 		val blockId = id / blockSize
