@@ -10,3 +10,5 @@
 /target
 *.swp
 *_completion
+.idea
+*.iml
