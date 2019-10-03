@@ -45,18 +45,7 @@ class LabelBlockLookupFromN5(
 			while (bb.hasRemaining()) {
 				val id = bb.long
 				val numIntervals = bb.int
-				val intervals = Stream
-						.generate(
-								({
-									FinalInterval(
-											longArrayOf(bb.long, bb.long, bb.long),
-											longArrayOf(bb.long, bb.long, bb.long)
-									) as Interval
-								}))
-						.limit(numIntervals.toLong())
-						.collect(Collectors.toList())
-						.toTypedArray()
-				map[id] = intervals
+				map[id] = (0 until numIntervals).map<Int, Interval> { bb.readFinalInterval3D() }.toTypedArray()
 			}
 			return map
 		}
@@ -68,16 +57,21 @@ class LabelBlockLookupFromN5(
 			for (entry in map) {
 				bb.putLong(entry.key)
 				bb.putInt(entry.value.size)
-				for (interval in entry.value) {
-					bb.putLong(interval.min(0))
-					bb.putLong(interval.min(1))
-					bb.putLong(interval.min(2))
-					bb.putLong(interval.max(0))
-					bb.putLong(interval.max(1))
-					bb.putLong(interval.max(2))
-				}
+				entry.value.forEach { bb.writeInterval3D(it) }
 			}
 			return bytes
+		}
+
+		private fun ByteBuffer.readLongArray3D() = longArrayOf(long, long, long)
+		private fun ByteBuffer.readFinalInterval3D() = FinalInterval(readLongArray3D(), readLongArray3D())
+		private inline fun ByteBuffer.writeThreeLongValues(generator: (Int) -> Long) {
+			putLong(generator(0))
+			putLong(generator(1))
+			putLong(generator(2))
+		}
+		private fun ByteBuffer.writeInterval3D(interval: Interval) {
+			writeThreeLongValues { interval.min(it) }
+			writeThreeLongValues { interval.max(it) }
 		}
 	}
 
@@ -156,24 +150,5 @@ class LabelBlockLookupFromN5(
 		val blockId = id / blockSize
 		return N5LabelBlockLookupKey(level, blockId)
 	}
-}
 
-fun main(args: Array<String>) {
-	val level = 1
-	val basePath = "bla-test"
-	val pattern = "label-to-block-mapping/s%d"
-	val writer = N5FSWriter(basePath)
-	val lookup = LabelBlockLookupFromN5(basePath, pattern)
-
-	writer.createDataset(String.format(pattern, level), DatasetAttributes(longArrayOf(100), intArrayOf(3), DataType.INT8, GzipCompression()))
-
-	val map = mutableMapOf<Long, Array<Interval>>()
-	map[1L] = arrayOf(FinalInterval(longArrayOf(1, 2, 3), longArrayOf(3, 4, 5)) as Interval)
-
-	lookup.set(level, map)
-	lookup.write(LabelBlockLookupKey(level, 10L), FinalInterval(longArrayOf(4, 5, 6), longArrayOf(7, 8, 9)) as Interval, FinalInterval(longArrayOf(10, 11, 12), longArrayOf(123, 123, 123)))
-	lookup.write(LabelBlockLookupKey(level, 0L), FinalInterval(longArrayOf(1, 1, 1), longArrayOf(2, 2, 2)))
-
-	for (i in 0L..11L)
-		println(lookup.read(LabelBlockLookupKey(level, i)).asList().stream().map { "(${Arrays.toString(Intervals.minAsLongArray(it))}-${Arrays.toString(Intervals.maxAsLongArray(it))})" }.collect(Collectors.toList()) as List<String>)
 }
