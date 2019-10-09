@@ -2,23 +2,23 @@ package org.janelia.saalfeldlab.labels.blocks.n5
 
 import net.imglib2.FinalInterval
 import net.imglib2.Interval
-import net.imglib2.cache.Invalidate
 import net.imglib2.cache.ref.SoftRefLoaderCache
-import net.imglib2.util.Intervals
 import org.janelia.saalfeldlab.labels.blocks.CachedLabelBlockLookup
 import org.janelia.saalfeldlab.labels.blocks.LabelBlockLookup
 import org.janelia.saalfeldlab.labels.blocks.LabelBlockLookupKey
-import org.janelia.saalfeldlab.n5.*
+import org.janelia.saalfeldlab.n5.ByteArrayDataBlock
+import org.janelia.saalfeldlab.n5.DatasetAttributes
+import org.janelia.saalfeldlab.n5.N5FSWriter
 import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.lang.invoke.MethodHandles
 import java.nio.ByteBuffer
 import java.util.*
 import java.util.function.Predicate
-import java.util.stream.Collectors
-import java.util.stream.Stream
 
-@LabelBlockLookup.LookupType("n5-filesystem")
+private const val LOOKUP_TYPE_IDENTIFIER = "n5-filesystem"
+
+@LabelBlockLookup.LookupType(LOOKUP_TYPE_IDENTIFIER)
 class LabelBlockLookupFromN5(
 		@LabelBlockLookup.Parameter private val root: String,
 		@LabelBlockLookup.Parameter private val scaleDatasetPattern: String) : CachedLabelBlockLookup {
@@ -36,6 +36,8 @@ class LabelBlockLookupFromN5(
 
 	companion object {
 		private val LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass())
+
+		const val LOOKUP_TYPE = LOOKUP_TYPE_IDENTIFIER
 
 		private const val SINGLE_ENTRY_BYTE_SIZE = 3 * 2 * java.lang.Long.BYTES
 
@@ -102,6 +104,12 @@ class LabelBlockLookupFromN5(
 			cache.getIfPresent(key)?.keys?.any { id -> condition.test(LabelBlockLookupKey(key.level, id)) } ?: false
 		}
 	}
+
+	override fun equals(other: Any?) = other is LabelBlockLookupFromN5
+			&& other.scaleDatasetPattern == scaleDatasetPattern
+			&& other.root == root
+
+	override fun hashCode() = Objects.hash(root, scaleDatasetPattern)
 
 	@Synchronized
 	@Throws(IOException::class)
