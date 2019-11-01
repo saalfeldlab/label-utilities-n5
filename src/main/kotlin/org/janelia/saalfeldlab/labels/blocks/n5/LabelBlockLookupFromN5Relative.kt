@@ -8,7 +8,7 @@ import org.janelia.saalfeldlab.labels.blocks.LabelBlockLookup
 import org.janelia.saalfeldlab.labels.blocks.LabelBlockLookupKey
 import org.janelia.saalfeldlab.n5.ByteArrayDataBlock
 import org.janelia.saalfeldlab.n5.DatasetAttributes
-import org.janelia.saalfeldlab.n5.N5FSWriter
+import org.janelia.saalfeldlab.n5.N5Writer
 import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.lang.invoke.MethodHandles
@@ -23,16 +23,7 @@ class LabelBlockLookupFromN5Relative(
 
     private constructor() : this("")
 
-    private lateinit var n5: N5FSWriter
-
-    private lateinit var _container: String
-
-    var container: String
-        get() = _container
-        private set(container) {
-            _container = container
-            n5 = N5FSWriter(_container)
-        }
+    private lateinit var container: N5Writer
 
     private var group: String? = null
 
@@ -132,9 +123,9 @@ class LabelBlockLookupFromN5Relative(
     private fun readBlock(blockKey: N5LabelBlockLookupKey): MutableMap<Long, Array<Interval>> {
         LOG.debug("Reading block id {} at scale level={}", blockKey.blockId, blockKey.level)
         val dataset = String.format(actualScaleDatasetPattern, blockKey.level)
-        val attributes = this.attributes.getOrPut(blockKey.level, { n5.getDatasetAttributes(dataset) })
+        val attributes = this.attributes.getOrPut(blockKey.level, { container.getDatasetAttributes(dataset) })
 
-        val block = n5.readBlock(dataset, attributes, longArrayOf(blockKey.blockId)) as? ByteArrayDataBlock
+        val block = container.readBlock(dataset, attributes, longArrayOf(blockKey.blockId)) as? ByteArrayDataBlock
         return if (block != null) fromBytes(block.data) else mutableMapOf()
     }
 
@@ -142,24 +133,24 @@ class LabelBlockLookupFromN5Relative(
     private fun writeBlock(blockKey: N5LabelBlockLookupKey, map: Map<Long, Array<Interval>>) {
         LOG.debug("Writing block id {} at scale level={}", blockKey.blockId, blockKey.level)
         val dataset = String.format(actualScaleDatasetPattern, blockKey.level)
-        val attributes = this.attributes.getOrPut(blockKey.level, { n5.getDatasetAttributes(dataset) })
+        val attributes = this.attributes.getOrPut(blockKey.level, { container.getDatasetAttributes(dataset) })
 
         val size = intArrayOf(attributes.blockSize[0])
         val block = ByteArrayDataBlock(size, longArrayOf(blockKey.blockId), toBytes(map))
-        n5.writeBlock(dataset, attributes, block)
+        container.writeBlock(dataset, attributes, block)
     }
 
     private fun getBlockKey(key: LabelBlockLookupKey) = getBlockKey(key.level, key.id)
 
     private fun getBlockKey(level: Int, id: Long): N5LabelBlockLookupKey {
         val dataset = String.format(actualScaleDatasetPattern, level)
-        val attributes = this.attributes.getOrPut(level, { n5.getDatasetAttributes(dataset) })
+        val attributes = this.attributes.getOrPut(level, { container.getDatasetAttributes(dataset) })
         val blockSize = attributes.blockSize[0]
         val blockId = id / blockSize
         return N5LabelBlockLookupKey(level, blockId)
     }
 
-    override fun setRelativeTo(container: String, group: String?) {
+    override fun setRelativeTo(container: N5Writer, group: String?) {
         this.container = container
         this.group = group
     }
