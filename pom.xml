@@ -9,7 +9,7 @@
 
 	<groupId>org.janelia.saalfeldlab</groupId>
 	<artifactId>label-utilities-n5</artifactId>
-	<version>0.3.1-SNAPSHOT</version>
+	<version>0.3.1</version>
 
 	<name>Label Utilities N5</name>
 	<description>Tools for label data that have n5 dependency.</description>
@@ -60,7 +60,7 @@
 	<scm>
 		<connection>scm:git:git://github.com/saalfeldlab/label-utilities-n5</connection>
 		<developerConnection>scm:git:git@github.com:saalfeldlab/label-utilities-n5</developerConnection>
-		<tag>HEAD</tag>
+		<tag>label-utilities-n5-0.3.1</tag>
 		<url>https://github.com/saalfeldlab/label-utilities-n5</url>
 	</scm>
 	<issueManagement>
