@@ -77,7 +77,7 @@ class LabelBlockLookupFromN5RelativeTest {
             val writer = N5FSWriter(containerPath)
             val lookup = LabelBlockLookupFromN5Relative(pattern)
             val dataset = String.format(group?.let { "$it/$pattern" } ?: pattern, level)
-            lookup.setRelativeTo(containerPath, group)
+            lookup.setRelativeTo(writer, group)
 
             writer.createDataset(dataset, DatasetAttributes(longArrayOf(100), intArrayOf(3), DataType.INT8, GzipCompression()))
 
