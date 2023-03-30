@@ -65,6 +65,20 @@ class LabelBlockLookupFromN5Test {
     }
 
     @Test
+    fun `read empty interval array if dataset doesn't exist`() {
+        val containerPath = tempDirectory().resolve("container.n5").absolutePath
+        LOG.debug("container={}", containerPath)
+        val level = 1
+        val pattern = "label-to-block-mapping/s%d"
+        val lookup = LabelBlockLookupFromN5(containerPath, pattern)
+
+        for (i in 0L..11L) {
+            val intervals = lookup.read(LabelBlockLookupKey(level, i))
+            assert(intervals.isEmpty())
+        }
+    }
+
+    @Test
     fun `test LabelBlockLookupFromN5`() {
         val containerPath = testDirectory.resolve("container.n5").absolutePath
         LOG.debug("container={}", containerPath)
