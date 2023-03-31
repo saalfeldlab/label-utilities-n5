@@ -82,7 +82,6 @@
 		<releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
 
 		<imglib2-cache.version>1.0.0-beta-13</imglib2-cache.version>
-		<enforcer.skip>true</enforcer.skip>
 
 		<kotlin.compiler.jvmTarget>11</kotlin.compiler.jvmTarget>
 		<maven.compiler.source>17</maven.compiler.source>
