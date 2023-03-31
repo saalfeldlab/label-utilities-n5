@@ -79,7 +79,7 @@
 		<license.copyrightOwners>Stephan Saalfeld</license.copyrightOwners>
 
 		<!-- NB: Deploy releases to the ImageJ Maven repository. -->
-		<releaseProfiles>deploy-to-scijava</releaseProfiles>
+		<releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
 
 		<imglib2-cache.version>1.0.0-beta-13</imglib2-cache.version>
 		<enforcer.skip>true</enforcer.skip>
