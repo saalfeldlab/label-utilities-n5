@@ -18,7 +18,7 @@ import java.util.function.Predicate
 private const val LOOKUP_TYPE_IDENTIFIER = "n5-filesystem-relative"
 
 @LabelBlockLookup.LookupType(LOOKUP_TYPE_IDENTIFIER)
-class LabelBlockLookupFromN5Relative(
+class LabelBlockLookupFromN5Relative (
         @LabelBlockLookup.Parameter private val scaleDatasetPattern: String) : CachedLabelBlockLookup, IsRelativeToContainer {
 
     private constructor() : this("")
@@ -83,17 +83,19 @@ class LabelBlockLookupFromN5Relative(
 
     @Synchronized
     override fun read(key: LabelBlockLookupKey): Array<Interval> {
-        val map = cache.get(getBlockKey(key), this::readBlock)
-        return map[key.id] ?: arrayOf()
+        return getBlockKey(key)?.let { blockKey ->
+            val map = cache.get(blockKey, this::readBlock)
+            map[key.id] ?: arrayOf()
+        } ?: arrayOf()
     }
 
     @Synchronized
     override fun write(key: LabelBlockLookupKey, vararg intervals: Interval) {
-        val blockKey = getBlockKey(key)
+        val blockKey = getBlockKey(key)!!
         cache.invalidate(blockKey)
         val map = readBlock(blockKey)
         map[key.id] = arrayOf(*intervals)
-        writeBlock(getBlockKey(key), map)
+        writeBlock(blockKey, map)
     }
 
     @Synchronized
@@ -114,7 +116,7 @@ class LabelBlockLookupFromN5Relative(
     fun set(level: Int, map: Map<Long, Array<Interval>>) {
         val mapByBlockKey = mutableMapOf<N5LabelBlockLookupKey, MutableMap<Long, Array<Interval>>>()
         for (entry in map)
-            mapByBlockKey.computeIfAbsent(getBlockKey(level, entry.key)) { mutableMapOf() }[entry.key] = entry.value
+            mapByBlockKey.computeIfAbsent(getBlockKey(level, entry.key)!!) { mutableMapOf() }[entry.key] = entry.value
         cache.invalidateIf { it.level == level }
         mapByBlockKey.forEach(this::writeBlock)
     }
@@ -125,7 +127,7 @@ class LabelBlockLookupFromN5Relative(
         val dataset = String.format(actualScaleDatasetPattern, blockKey.level)
         val attributes = this.attributes.getOrPut(blockKey.level, { container.getDatasetAttributes(dataset) })
 
-        val block = container.readBlock(dataset, attributes, longArrayOf(blockKey.blockId)) as? ByteArrayDataBlock
+        val block = container.readBlock(dataset, attributes, *longArrayOf(blockKey.blockId)) as? ByteArrayDataBlock
         return if (block != null) fromBytes(block.data) else mutableMapOf()
     }
 
@@ -142,8 +144,9 @@ class LabelBlockLookupFromN5Relative(
 
     private fun getBlockKey(key: LabelBlockLookupKey) = getBlockKey(key.level, key.id)
 
-    private fun getBlockKey(level: Int, id: Long): N5LabelBlockLookupKey {
+    private fun getBlockKey(level: Int, id: Long): N5LabelBlockLookupKey? {
         val dataset = String.format(actualScaleDatasetPattern, level)
+        if (!container.datasetExists(dataset)) return null
         val attributes = this.attributes.getOrPut(level, { container.getDatasetAttributes(dataset) })
         val blockSize = attributes.blockSize[0]
         val blockId = id / blockSize

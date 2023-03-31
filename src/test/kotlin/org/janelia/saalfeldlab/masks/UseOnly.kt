@@ -63,7 +63,7 @@ class UseOnly {
 			val dims = Intervals.dimensionsAsLongArray(cutoffMask)
 			dims[axis.index] = index
 			val blocks = Grids.collectAllContainedIntervals(dims, IntArray(dims.size, {64}))
-			val futures = es.invokeAll(blocks.map { Callable { LoopBuilder.setImages(Views.interval(mask, it), Views.interval(cutoffMask, it)).forEachPixel(BiConsumer { t, u -> u.set(t) }); null } })
+			val futures = es.invokeAll(blocks.map { Callable { LoopBuilder.setImages(Views.interval(mask, it), Views.interval(cutoffMask, it)).forEachPixel(BiConsumer { t, u -> (u as IntegerType<T>).set(t) }); null } })
 			futures.forEach { it.get() }
 
 			val attrs = inputContainer.getDatasetAttributes(inputDataset)
