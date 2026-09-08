@@ -6,19 +6,35 @@ on:
       - master
     tags:
       - "*-[0-9]+.*"
+  pull_request:
+    branches:
+      - master
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up Java
-        uses: actions/setup-java@v3
+      - uses: actions/checkout@v6
+
+      - name: Cache m2 folder
+        uses: actions/cache@v4
+        env:
+          cache-name: cache-m2
         with:
-          java-version: '11'
-          distribution: 'adopt'
-          cache: 'maven'
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-build-${{ env.cache-name }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-        
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+
       - name: Set up CI environment
         run: .github/setup.sh
       - name: Execute the build
