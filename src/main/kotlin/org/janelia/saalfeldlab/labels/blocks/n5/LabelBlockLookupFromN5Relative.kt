@@ -1,6 +1,5 @@
 package org.janelia.saalfeldlab.labels.blocks.n5
 
-import net.imglib2.FinalInterval
 import net.imglib2.Interval
 import net.imglib2.cache.ref.SoftRefLoaderCache
 import org.janelia.saalfeldlab.labels.blocks.CachedLabelBlockLookup
@@ -12,14 +11,15 @@ import org.janelia.saalfeldlab.n5.N5Writer
 import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.lang.invoke.MethodHandles
-import java.nio.ByteBuffer
 import java.util.function.Predicate
 
 private const val LOOKUP_TYPE_IDENTIFIER = "n5-filesystem-relative"
 
 @LabelBlockLookup.LookupType(LOOKUP_TYPE_IDENTIFIER)
-class LabelBlockLookupFromN5Relative (
-        @LabelBlockLookup.Parameter private val scaleDatasetPattern: String) : CachedLabelBlockLookup, IsRelativeToContainer {
+class LabelBlockLookupFromN5Relative @JvmOverloads constructor(
+        @LabelBlockLookup.Parameter private val scaleDatasetPattern: String,
+        @LabelBlockLookup.Parameter private val numDimensions: Int? = LabelBlockLookupCodec.LEGACY_NUM_DIMENSIONS
+) : CachedLabelBlockLookup, IsRelativeToContainer {
 
     private constructor() : this("")
 
@@ -41,44 +41,6 @@ class LabelBlockLookupFromN5Relative (
         private val LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass())
 
         const val LOOKUP_TYPE = LOOKUP_TYPE_IDENTIFIER
-
-        private const val SINGLE_ENTRY_BYTE_SIZE = 3 * 2 * java.lang.Long.BYTES
-
-        private fun fromBytes(array: ByteArray): MutableMap<Long, Array<Interval>> {
-            val map = mutableMapOf<Long, Array<Interval>>()
-            val bb = ByteBuffer.wrap(array)
-            while (bb.hasRemaining()) {
-                val id = bb.long
-                val numIntervals = bb.int
-                map[id] = (0 until numIntervals).map<Int, Interval> { bb.readFinalInterval3D() }.toTypedArray()
-            }
-            return map
-        }
-
-        private fun toBytes(map: Map<Long, Array<Interval>>): ByteArray {
-            val sizeInBytes = map.values.stream().mapToInt { java.lang.Long.BYTES + Integer.BYTES + SINGLE_ENTRY_BYTE_SIZE * it.size }.sum()
-            val bytes = ByteArray(sizeInBytes)
-            val bb = ByteBuffer.wrap(bytes)
-            for (entry in map) {
-                bb.putLong(entry.key)
-                bb.putInt(entry.value.size)
-                entry.value.forEach { bb.writeInterval3D(it) }
-            }
-            return bytes
-        }
-
-        private fun ByteBuffer.readLongArray3D() = longArrayOf(long, long, long)
-        private fun ByteBuffer.readFinalInterval3D() = FinalInterval(readLongArray3D(), readLongArray3D())
-        private inline fun ByteBuffer.writeThreeLongValues(generator: (Int) -> Long) {
-            putLong(generator(0))
-            putLong(generator(1))
-            putLong(generator(2))
-        }
-
-        private fun ByteBuffer.writeInterval3D(interval: Interval) {
-            writeThreeLongValues { interval.min(it) }
-            writeThreeLongValues { interval.max(it) }
-        }
     }
 
     @Synchronized
@@ -127,8 +89,8 @@ class LabelBlockLookupFromN5Relative (
         val dataset = String.format(actualScaleDatasetPattern, blockKey.level)
         val attributes = this.attributes.getOrPut(blockKey.level, { container.getDatasetAttributes(dataset) })
 
-        val block = container.readBlock(dataset, attributes, *longArrayOf(blockKey.blockId)) as? ByteArrayDataBlock
-        return if (block != null) fromBytes(block.data) else mutableMapOf()
+        val block = container.readBlock<ByteArray>(dataset, attributes, *longArrayOf(blockKey.blockId)) as? ByteArrayDataBlock
+        return if (block != null) LabelBlockLookupCodec.fromBytes(block.data, numDimensions) else mutableMapOf()
     }
 
     @Throws(IOException::class)
@@ -138,7 +100,7 @@ class LabelBlockLookupFromN5Relative (
         val attributes = this.attributes.getOrPut(blockKey.level, { container.getDatasetAttributes(dataset) })
 
         val size = intArrayOf(attributes.blockSize[0])
-        val block = ByteArrayDataBlock(size, longArrayOf(blockKey.blockId), toBytes(map))
+        val block = ByteArrayDataBlock(size, longArrayOf(blockKey.blockId), LabelBlockLookupCodec.toBytes(map, numDimensions))
         container.writeBlock(dataset, attributes, block)
     }
 
@@ -160,7 +122,8 @@ class LabelBlockLookupFromN5Relative (
 
     override fun equals(other: Any?) = other is LabelBlockLookupFromN5Relative
             && other.scaleDatasetPattern == scaleDatasetPattern
+            && other.numDimensions == numDimensions
 
-    override fun hashCode() = scaleDatasetPattern.hashCode()
+    override fun hashCode() = java.util.Objects.hash(scaleDatasetPattern, numDimensions)
 
 }

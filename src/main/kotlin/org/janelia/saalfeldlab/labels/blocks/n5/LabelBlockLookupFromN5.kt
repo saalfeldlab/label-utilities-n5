@@ -1,6 +1,5 @@
 package org.janelia.saalfeldlab.labels.blocks.n5
 
-import net.imglib2.FinalInterval
 import net.imglib2.Interval
 import net.imglib2.cache.ref.SoftRefLoaderCache
 import org.janelia.saalfeldlab.labels.blocks.CachedLabelBlockLookup
@@ -12,16 +11,17 @@ import org.janelia.saalfeldlab.n5.N5FSWriter
 import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.lang.invoke.MethodHandles
-import java.nio.ByteBuffer
 import java.util.*
 import java.util.function.Predicate
 
 private const val LOOKUP_TYPE_IDENTIFIER = "n5-filesystem"
 
 @LabelBlockLookup.LookupType(LOOKUP_TYPE_IDENTIFIER)
-class LabelBlockLookupFromN5(
+class LabelBlockLookupFromN5 @JvmOverloads constructor(
 		@LabelBlockLookup.Parameter private val root: String,
-		@LabelBlockLookup.Parameter private val scaleDatasetPattern: String) : CachedLabelBlockLookup {
+		@LabelBlockLookup.Parameter private val scaleDatasetPattern: String,
+		@LabelBlockLookup.Parameter private val numDimensions: Int? = LabelBlockLookupCodec.LEGACY_NUM_DIMENSIONS
+) : CachedLabelBlockLookup {
 
 	private constructor(): this("", "")
 
@@ -38,43 +38,6 @@ class LabelBlockLookupFromN5(
 		private val LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass())
 
 		const val LOOKUP_TYPE = LOOKUP_TYPE_IDENTIFIER
-
-		private const val SINGLE_ENTRY_BYTE_SIZE = 3 * 2 * java.lang.Long.BYTES
-
-		private fun fromBytes(array: ByteArray): MutableMap<Long, Array<Interval>> {
-			val map = mutableMapOf<Long, Array<Interval>>()
-			val bb = ByteBuffer.wrap(array)
-			while (bb.hasRemaining()) {
-				val id = bb.long
-				val numIntervals = bb.int
-				map[id] = (0 until numIntervals).map<Int, Interval> { bb.readFinalInterval3D() }.toTypedArray()
-			}
-			return map
-		}
-
-		private fun toBytes(map: Map<Long, Array<Interval>>): ByteArray {
-			val sizeInBytes = map.values.stream().mapToInt { java.lang.Long.BYTES + Integer.BYTES + SINGLE_ENTRY_BYTE_SIZE * it.size }.sum()
-			val bytes = ByteArray(sizeInBytes)
-			val bb = ByteBuffer.wrap(bytes)
-			for (entry in map) {
-				bb.putLong(entry.key)
-				bb.putInt(entry.value.size)
-				entry.value.forEach { bb.writeInterval3D(it) }
-			}
-			return bytes
-		}
-
-		private fun ByteBuffer.readLongArray3D() = longArrayOf(long, long, long)
-		private fun ByteBuffer.readFinalInterval3D() = FinalInterval(readLongArray3D(), readLongArray3D())
-		private inline fun ByteBuffer.writeThreeLongValues(generator: (Int) -> Long) {
-			putLong(generator(0))
-			putLong(generator(1))
-			putLong(generator(2))
-		}
-		private fun ByteBuffer.writeInterval3D(interval: Interval) {
-			writeThreeLongValues { interval.min(it) }
-			writeThreeLongValues { interval.max(it) }
-		}
 	}
 
 	@Synchronized
@@ -110,8 +73,9 @@ class LabelBlockLookupFromN5(
 	override fun equals(other: Any?) = other is LabelBlockLookupFromN5
 			&& other.scaleDatasetPattern == scaleDatasetPattern
 			&& other.root == root
+			&& other.numDimensions == numDimensions
 
-	override fun hashCode() = Objects.hash(root, scaleDatasetPattern)
+	override fun hashCode() = Objects.hash(root, scaleDatasetPattern, numDimensions)
 
 	@Synchronized
 	@Throws(IOException::class)
@@ -129,8 +93,8 @@ class LabelBlockLookupFromN5(
 		val dataset = String.format(scaleDatasetPattern, blockKey.level)
 		val attributes = this.attributes.getOrPut(blockKey.level, { n5().getDatasetAttributes(dataset) })
 
-		val block = n5().readBlock(dataset, attributes, *longArrayOf(blockKey.blockId)) as? ByteArrayDataBlock
-		return if (block != null) fromBytes(block.data) else mutableMapOf()
+		val block = n5().readBlock<ByteArray>(dataset, attributes, *longArrayOf(blockKey.blockId)) as? ByteArrayDataBlock
+		return if (block != null) LabelBlockLookupCodec.fromBytes(block.data, numDimensions) else mutableMapOf()
 	}
 
 	@Throws(IOException::class)
@@ -140,7 +104,7 @@ class LabelBlockLookupFromN5(
 		val attributes = this.attributes.getOrPut(blockKey.level, { n5().getDatasetAttributes(dataset) })
 
 		val size = intArrayOf(attributes.blockSize[0])
-		val block = ByteArrayDataBlock(size, longArrayOf(blockKey.blockId), toBytes(map))
+		val block = ByteArrayDataBlock(size, longArrayOf(blockKey.blockId), LabelBlockLookupCodec.toBytes(map, numDimensions))
 		n5().writeBlock(dataset, attributes, block)
 	}
 

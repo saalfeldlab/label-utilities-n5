@@ -18,6 +18,7 @@ import org.junit.Assert
 import org.junit.Test
 import org.slf4j.LoggerFactory
 import java.io.File
+import kotlin.io.path.createTempDirectory
 import java.lang.invoke.MethodHandles
 
 class LabelBlockLookupFromN5Test {
@@ -45,16 +46,20 @@ class LabelBlockLookupFromN5Test {
         val serialized2 = gson.toJsonTree(lookup2)
 
         Assert.assertEquals(
-                JsonObject()
-                        .also { it.addProperty("type", LabelBlockLookupFromN5.LOOKUP_TYPE) }
-                        .also { it.addProperty("scaleDatasetPattern", pattern1) }
-                        .also { it.addProperty("root", container1) },
+                JsonObject().apply {
+                    addProperty("type", LabelBlockLookupFromN5.LOOKUP_TYPE)
+                    addProperty("scaleDatasetPattern", pattern1)
+                    addProperty("root", container1)
+                    addProperty("numDimensions", 3)
+                },
                 serialized1)
         Assert.assertEquals(
-                JsonObject()
-                        .also { it.addProperty("type", LabelBlockLookupFromN5.LOOKUP_TYPE) }
-                        .also { it.addProperty("scaleDatasetPattern", pattern2) }
-                        .also { it.addProperty("root", container2) },
+                JsonObject().apply {
+                    addProperty("type", LabelBlockLookupFromN5.LOOKUP_TYPE)
+                    addProperty("scaleDatasetPattern", pattern2)
+                    addProperty("root", container2)
+                    addProperty("numDimensions", 3)
+                },
                 serialized2)
 
         val deserialized1 = gson.fromJson(serialized1, LabelBlockLookup::class.java)
@@ -147,7 +152,7 @@ class LabelBlockLookupFromN5Test {
 
         private fun tempDirectory(
                 prefix: String = "label-utilities-n5-",
-                suffix: String? = ".test") = createTempDir(prefix, suffix).also { LOG.debug("Created tmp directory {}", it) }
+                suffix: String = ".test") = createTempDirectory(prefix + suffix).toFile().also { LOG.debug("Created tmp directory {}", it) }
 
     }
 
